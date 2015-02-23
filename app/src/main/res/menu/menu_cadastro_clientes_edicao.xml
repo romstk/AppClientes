@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android" >
+    
+<item
+        android:id="@+id/menuitem_cadastro_clientes_edicao_novocliente"
+        android:showAsAction="ifRoom"
+        android:title="Novo"/>
+    
+    
+<item
+        android:id="@+id/menuitem_cadastro_clientes_edicao_salvar"
+        android:showAsAction="ifRoom"
+        android:title="Salvar"/>
+<item
+        android:id="@+id/menuitem_cadastro_clientes_edicao_exlcuir"
+        android:showAsAction="ifRoom"
+        android:title="Excluir"/>
+<item
+        android:id="@+id/menuitem_cadastro_clientes_edicao_voltar_Lista"
+        android:showAsAction="ifRoom"
+        android:title="Voltar"/>
+<item
+        android:id="@+id/menuitem_cadastro_clientes_edicao_voltar_principal"
+        android:showAsAction="ifRoom"
+        android:title="Início"/>
+
+
+<item
+        android:id="@+id/menuitem_cadastro_clientes_edicao_mapa"
+        android:showAsAction="ifRoom"
+        android:title="Mapa"/>
+<item
+        android:id="@+id/menuitem_mapa_clientes_salvalocal"
+        android:showAsAction="ifRoom"
+        android:title="Salva Local"/>
+    
+</menu>

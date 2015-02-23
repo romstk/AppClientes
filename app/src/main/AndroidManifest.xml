@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    package="com.android.appclientes.app" >
+
+    <permission
+
+        android:name="com.android.appclientes.app.permission.MAPS_RECEIVE"
+        android:protectionLevel="signature"/>
+
+        <uses-permission android:name="com.android.appclientes.app.permission.MAPS_RECEIVE"/>
+
+        <uses-permission android:name="android.permission.internet"/>
+        <uses-permission android:name="android.permission.write_external_storage"/>
+        <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES"/>
+        <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+        <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+        <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/AppTheme" >
+
+        <activity
+            android:name="com.android.appclientes.app.AppClientes"
+            android:label="@string/app_name" >
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.appclientes.app.MenuPrincipal"
+            android:label="Menu">
+                <intent-filter>
+                    <action android:name="android.intent.action.VIEW"/>
+                    <category android:name="android.intent.category.LAUNCHER"/>
+
+                </intent-filter>
+        </activity>
+
+        <activity android:name="com.android.appclientes.app.ListaClientes"
+            android:label="Clientes">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+
+            </intent-filter>
+        </activity>
+        <activity android:name="com.android.appclientes.app.CadastroCliente"
+            android:label="Cadastro Clientes">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+
+            </intent-filter>
+        </activity>
+
+
+
+
+    </application>
+
+</manifest>
