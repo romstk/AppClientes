@@ -2,14 +2,22 @@ package com.android.appclientes.app;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.Fragment;
+import android.app.FragmentTransaction;
+import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.location.Address;
+import android.location.Geocoder;
 import android.location.GpsStatus;
 import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
+import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -17,7 +25,11 @@ import android.widget.AdapterView;
 import android.widget.AdapterView.OnItemClickListener;
 import android.widget.ArrayAdapter;
 import android.widget.EditText;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.ListView;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.gms.maps.CameraUpdateFactory;
@@ -28,6 +40,18 @@ import com.google.android.gms.maps.model.CameraPosition;
 import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.Marker;
 import com.google.android.gms.maps.model.MarkerOptions;
+import com.google.android.gms.maps.model.PolygonOptions;
+import com.google.android.gms.maps.model.Polyline;
+import com.google.android.gms.maps.model.PolylineOptions;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.util.List;
+import java.util.Locale;
 
 @SuppressLint("NewApi")
 public class ListaClientes extends Activity{
@@ -36,21 +60,10 @@ public class ListaClientes extends Activity{
 	Intent i ; //Variável que manipula os intentos chamados na tela principal
 	public CadastroDataBase dataBase = new CadastroDataBase(ListaClientes.this);
 	public Cliente cliente = new Cliente();
-	// Vari�veis que recebem os edit text da tela de cadastro
-		EditText edcnpjcpf, ednome, edfone, edcelular, edemail, edcontato, edendereco, edcep, edcidade; 
+	// Variáveis que recebem os edit text da tela de cadastro
+	EditText edcnpjcpf, ednome, edfone, edcelular, edemail, edcontato, edendereco, edcep, edcidade;
 	
-	// Vari�veis que manipulam o GPS	
-	public LocationManager lm; 	// = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
-							   	// permite o acesso a servi�os de localiza��o e status de GPS	
-	public Location loc; 	// = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
-							// 
-	LatLng atualSystemLocation; // localização atual (latitude e longitude)
-	LatLng clienteLocation; // Localização salva do cliente (latitude e longitude)
-	GpsStatus statusGPS;
-	
-	GoogleMap mMap = null;	
-	
-	
+
 	void carregaListaPessoas(){
 		Lista=true;
 
@@ -97,7 +110,7 @@ public class ListaClientes extends Activity{
 					long arg3) {
 			
 			/*
-			 *  Arg2 � a posi��o clicada
+			 *  Arg2 é a posição clicada
 			 * 
 			 * */	
 			Lista=false;	
@@ -112,13 +125,13 @@ public class ListaClientes extends Activity{
 		
 	} 
 	
-	// Carrega a tela de cadastro de clientes para edi��o, neste caso com os dados do cliente selecionado na lista e com op�oes de editar 
+	// Carrega a tela de cadastro de clientes para ediçãoo, neste caso com os dados do cliente selecionado na lista e com opçoes de editar
 	// e excluir o cliente 
 
 	
 	void carregaTelaCadastroParaEdicao(Cliente cli){
 		
-		// Recebe uma instancia do cliente clicado na lista de cliente e seta na tela de cadastro permitindo a edi��o dos dados
+		// Recebe uma instancia do cliente clicado na lista de cliente e seta na tela de cadastro permitindo a edição dos dados
 		cliente = cli;
 		
 		setContentView(R.layout.cadastro);
@@ -144,14 +157,20 @@ public class ListaClientes extends Activity{
 		edendereco.setText(cli.getEndereco().toString());
 		edcep.setText(cli.getCEP().toString());
 		edcidade.setText(cli.getCidade().toString());
+
+        //Verifica se o cliente possui localização salva então mostra mapa abaixo dos campos do cadastro
+
+        if((cliente.getLatitude()!=0)||(cliente.getLongitude()!=0)){
+            visualizaLocalizacao();
+
+        }
+
 		
-		EditText latlong = (EditText) findViewById(R.id.eLatLong);
-		latlong.setText("Latitude: "+cliente.getLatitude()+" -  "+"Longitude: "+cliente.getLongitude());
-		
+
 		
 	}
 	
-	// M�todo que carrega a primeira tela.	
+	// Método que carrega a primeira tela.
 		@Override
 		protected void onCreate(Bundle savedInstanceState) {
 			super.onCreate(savedInstanceState);
@@ -217,75 +236,92 @@ public class ListaClientes extends Activity{
 		}
 		
 		public LatLng atualizaLocation(Location loc){
-			LatLng atualSystemLocation = null; // localiza��o atual
+			LatLng atualSystemLocation = null; // localização atual
 			atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
 			return atualSystemLocation;
 			
 		}
 		
 		
-		void visualizaLocalizacao(){
-			// Apóss salva a localização do cliente no database.
-			// Visualiza localização do cliente com base na altitule e longitude vinda do banco de dados do cliente cadastradas previamente.
-			// Verifica também a localização atual para traçar uma rota.
-			
-			
-			if (cliente.getLatitude()!=0 ||cliente.getLongitude()!=0){
-			
-			// lm e loc abaixo utilizados para buscar dados da localiza��o atual
+		void visualizaLocalizacao() {
+
+			/*
+			    Após salva a localização do cliente no database.
+			    Visualiza localização do cliente com base na altitule e longitude vinda do banco de dados do cliente cadastradas previamente.
+			    Verifica também a localização atual para traçar uma rota.
+                O layout cadastro tem um fragment dentro de um layout layoutMapa que é por padrão invisível
+                Se torna visível quando alguma rotina chamma esta rotina de visualização pois só mostra o mapa para
+                o cliente que tenha a localização já salva.
+
+            */
+
+
+			if ((cliente.getLatitude()!=0) ||(cliente.getLongitude()!=0)){
+               /* Variáveis que manipulam o GPS
+
+                permite o acesso a serviços de localização e status de GPS
+                LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
+                Location loc; 	// = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+			    lm e loc abaixo utilizados para buscar dados da localização atual
+
+                */
 				
-			System.out.println("Seta valor em lm.");	
-			lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
-			
-			
+			System.out.println("Seta valor em lm.");
+
+
+		    LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
+
+                GpsStatus status;
+
+
+
+
 			if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)){
 							System.out.println("Dentro do IF");
-							setContentView(R.layout.mapa_local_cliente);
-							
+
 							System.out.println("Seta valor em loc.");
-							loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                            Location loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
 							
 							System.out.println("Setou valor em loc.");
-							// Define o mapa 
-							mMap = ((MapFragment) getFragmentManager().findFragmentById(R.id.map)).getMap();
-							System.out.println("Latitude Cliente"+cliente.getLatitude());
-							System.out.println("Latitude Cliente"+cliente.getLongitude());
-							
-							System.out.println("Latitude Loc "+loc.getLatitude());
-							System.out.println("Latitude Loc "+loc.getLongitude());
-							
-							
-							
+							// Define o mapa
+                            GoogleMap mMap = ((MapFragment) getFragmentManager().findFragmentById(R.id.mapCad)).getMap();
+
+
+                            FrameLayout layout = (FrameLayout) findViewById(R.id.layoutMapa);
+                            layout.setVisibility(View.VISIBLE);
+
+
 							System.out.println("Seta valor atualSystemLocation.");
-							atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
+							LatLng atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude()); // localização atual (latitude e longitude)
 							System.out.println("Setou valor atualSystemLocation.");
 							Marker frameworkSystem = mMap.addMarker(new MarkerOptions()
-							.icon(BitmapDescriptorFactory.fromResource(R.drawable.home))
+							//.icon(BitmapDescriptorFactory.fromResource(R.drawable.home))
+                            .icon(BitmapDescriptorFactory.fromResource(R.drawable.pin))
 							.position(atualSystemLocation)
-							.title("Localiza��o Atual")
+							.title("Localização Atual")
 							.snippet("Ponto de partida.")
 							);
 						
 							System.out.println("Antes do move camera atualSystemLocation.");
-							// Move a c�mera para Framework System com zoom 15.
+							// Move a câmera para Framework System com zoom 15.
 							mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(atualSystemLocation , 15));
-							
-							
+
 							
 							System.out.println("Setou valor em clienteLocation.");
-							// Define a localiza��o do cliente e seta dados e marca��es do cliente no mapa
-							clienteLocation = new LatLng(cliente.getLatitude(), cliente.getLongitude());
+							// Define a localizaçãoo do cliente e seta dados e marcações do cliente no mapa
+							LatLng clienteLocation = new LatLng(cliente.getLatitude(), cliente.getLongitude()); //Localização salva do cliente (latitude e longitude)
 							Marker frameworkCliente = mMap.addMarker(new MarkerOptions()
-							.icon(BitmapDescriptorFactory.fromResource(R.drawable.pin))
+							//.icon(BitmapDescriptorFactory.fromResource(R.drawable.pin))
 							.position(clienteLocation)
 							.title(cliente.getNome())
 							.flat(true)
-							.snippet("Endere�o: "+cliente.getEndereco())
+							.snippet("Endereço: "+cliente.getEndereco())
 								);
 							
 							
 							System.out.println("Antes do move camera clienteLocation.");
-							// Move a c�mera para clienteLocation  com zoom 15.
+							// Move a câmera para clienteLocation  com zoom 15.
 							
 							mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(clienteLocation , 15));
 				
@@ -302,73 +338,252 @@ public class ListaClientes extends Activity{
 					        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition),
 					                2000, null);
 						
-						
-						
-						
-						LocationListener locationListener = new LocationListener(){
-							
-							@Override
-							public void onLocationChanged(Location location) {
-								// Chama m�todo que atualiza a localiza��o
-								
-								// lm e loc abaixo utilizados para buscar dados da localiza��o atual
+				           /* Traça pontos entre a posição atual e a posição do cliente
+
+                            PolylineOptions line = new PolylineOptions();
+                            line.add(new LatLng(loc.getLatitude(), loc.getLongitude()));
+                            line.add(new LatLng(cliente.getLatitude(),cliente.getLongitude()));
+                            //line.color()
+                            Polyline polyline = mMap.addPolyline(line);
+                            polyline.setGeodesic(true);
+                            */
+
+                            //Traça rota entre o local atual e o destino
+
+
+/*
+
+
+                            String origem = "-25.443195, -49.280977";
+                            String destino = "-25.442207, -49.278403";
+                            System.out.println("Requisição Rotas: ");
+                            String url = "http://maps.googleapis.com/maps/api/directions/json?origin="+origem+
+                                    "&destinaton="+destino+"&sensor=true&mode=driving";
+
+                            // Chama o método que traça a rota para o mapa
+
+
+
+
+                            tracaRota(origem,destino);
+
+
+
+
+
+
+                            //String url = "http://maps.google.com/maps?f=d&addr="+origem+"&daddr="+destino+"&hl=pt";
+                            System.out.println("Rotas: "+ url);
+                            //startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
+
+                            Uri uri = Uri.parse(url);
+
+                            System.out.println("Rotas: "+ url);
+
+*/
+
+
+
+
+
+
+                LocationListener locationListener = new LocationListener(){
+                    /*
+                    *  Listener utilizada abaixo para tratar os eventos de atualização do GPS
+                    * */
+
+
+                    @Override
+                    public void onLocationChanged(Location location) {
+                        // Chama método que atualiza a localização
+
+                        // lm e loc abaixo utilizados para buscar dados da localização atual
 								/*
 								lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
 								loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 								atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
-								
+
 								Marker locationSystem = mMap.addMarker(new MarkerOptions()
 								.position(atualSystemLocation)
-								.title("Localiza��o Atual")
+								.title("Localização Atual")
 								//.snippet("Ponto de partida.")
 								);
 								*/
-								
-				        	
-							}
-			
-							@Override
-							public void onProviderDisabled(String provider) {
-								// TODO Auto-generated method stub
-								Toast.makeText(ListaClientes.this,"Gps Disabled",Toast.LENGTH_SHORT ).show();
-								
-							}
-			
-							@Override
-							public void onProviderEnabled(String provider) {
-								// TODO Auto-generated method stub
-								Toast.makeText(ListaClientes.this,"Gps Enabled",Toast.LENGTH_SHORT ).show();
-							}
-			
-							@Override
-							public void onStatusChanged(String provider, int status,
-									Bundle extras) {
-								// TODO Auto-generated method stub
-								
-							}
-							 
-							 
-						 };
-							 
-			
+
+
+                    }
+
+                    @Override
+                    public void onProviderDisabled(String provider) {
+                        // TODO Auto-generated method stub
+                        Toast.makeText(ListaClientes.this,"Gps Disabled",Toast.LENGTH_SHORT ).show();
+
+                    }
+
+                    @Override
+                    public void onProviderEnabled(String provider) {
+                        // TODO Auto-generated method stub
+                        Toast.makeText(ListaClientes.this,"Gps Enabled",Toast.LENGTH_SHORT ).show();
+                    }
+
+                    @Override
+                    public void onStatusChanged(String provider, int status,
+                                                Bundle extras) {
+                        // TODO Auto-generated method stub
+
+                    }
+
+
+                };
+
+
+			             /* Seta os parâmetros para caso ocorram updates na localização
+			                1º - parâmetro é o provider, neste caso o GPS
+			                2º - parâmetro é o tempo mínimo em milisegundos que é o intervalo que a aplicação deve atualizar a localização,
+			                     se for zero atualiza sempre que a localização mudar
+			                3º - parâmetro distância mínima em metros necessária que deve ser percorrido para a aplicação receber as atualizações
+			                4º- parâmetro que representa a implementação da LocationListener, que trata os métodos para cada evento ocorrido com o GPS
+                         */
 						 lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 1, locationListener);
-						 
-						}else{
-							Toast.makeText(ListaClientes.this, "Problemas na ativa��o do GPS. Verifique e tente novamente.", Toast.LENGTH_SHORT).show();
+
+
+
+
+
+
+            }else{
+							Toast.makeText(ListaClientes.this, "Problemas na ativação do GPS. Verifique e tente novamente.", Toast.LENGTH_SHORT).show();
 							Lista=false;
 							invalidateOptionsMenu();
 						}
 			}else{
 				
-				Utilitarios.showMessage("Cliente ainda n�o tem posi��o no mapa salva. Salve local correto e ent�o poder� visualizar no mapa.", "Mapa", ListaClientes.this);
+				Utilitarios.showMessage("Cliente ainda não tem posição no mapa salva. Salve local correto e então poderá visualizar no mapa.", "Mapa", ListaClientes.this);
 			}
 			
        
 		}
-		
-		
-		
-		void salvaLocalizacao(){
+
+
+
+    /**
+     *
+     * Método que faz a requisição dos dados para a classe Http
+     */
+    public void tracaRota (final String origem, final String destino){
+
+
+
+
+
+
+        //String  params  =  "origen|destino" ;
+        //try  {
+        //    params  =  URLEncoder. encode(params, "UTF-8");
+        //}  catch  ( UnsupportedEncodingException e1 )  {
+        //    // TODO Auto-gerado bloco catch
+         //   e1 . printStackTrace ();
+        //}
+
+
+        final ProgressDialog dialogo = new ProgressDialog(this);
+
+
+
+
+        // Instancia uma AsyncTask para executar a pesquisa na web em uma Thread fora da principal.
+        AsyncTask<String, Void, JSONObject> task = new AsyncTask<String, Void, JSONObject>() {
+
+            @Override
+            protected JSONObject doInBackground(String... strings) {
+
+                try {
+
+
+                    // URL com parâmetros e caracteres epeciais
+                    final String params = "origin=" + origem +"&destinaton="+destino+"&sensor=true&mode=driving";
+                    String url = URLEncoder.encode(params, "UTF-8");
+
+                    // URL Principal
+                    final String newUrl="http://maps.googleapis.com/maps/api/directions/json?"+params;
+                    System.out.println("NewURL - " +newUrl);
+
+                    Http http = new Http(newUrl);
+
+
+                /*
+                * Método que executa automaticamente a AssyncTask
+                * Faz o processamento em Background
+                * */
+                //Chama o método que executa a pesquisa que retorna um Json
+
+                Log.i("JSON LISTA", "antes de chamar http");
+                JSONObject json = http.consultaRota();
+                //Passa o json para o método onPostExecute
+                return json;
+
+                } catch (UnsupportedEncodingException e) {
+                    e.printStackTrace();
+                }
+
+                return null;
+            }
+
+            @Override
+            protected void onPreExecute() {
+            /*
+            * Método chamado antes da execução da Thread
+            * Utilizado também para apresentar uma mensagem de que o processamento está sendo executado
+            * */
+                super.onPreExecute();
+                Log.i("Rotas ", "onPreExecute");
+                dialogo.setMessage("Pesquisando. Aguarde...");
+                dialogo.show();
+            }
+
+            @Override
+            protected void onPostExecute(JSONObject json) {
+              /*
+              * Método executado a atualização da interface na Thread principal
+              * Utilizado para atualizar as views da thread principal
+              *
+              * */
+                super.onPostExecute(json);
+                Log.i("Rotas " , "onPostExecute");
+                /* Atualiza a view da tela principal*/
+
+
+
+                if (json!= null) {
+     //               try {
+
+                        // Seta os dados na classe telefone
+                        //fone.setNumero(telefone);
+                        //fone.setOperadora(json.getString("operadora"));
+                        //fone.setEstado(json.getString("estado"));
+                        //fone.setPortabilidade(Boolean.parseBoolean(json.getString("portabilidade")));
+                        System.out.print("Retorno JSon com as rotas: "+json);
+
+     //               } catch (JSONException e) {
+     //                   Log.e("Erro Json", "Erro no parsing JSON");
+     //                   e.printStackTrace();
+     //               }
+                }
+
+
+                // Finaliza a dialog que estava executando
+                if (dialogo.isShowing()) {
+                    dialogo.dismiss();
+                }
+            }
+        };
+        // Executa a task (AsyncTask) acima com todos os métodos
+        task.execute();
+    };
+
+
+
+    void salvaLocalizacao(){
 			// Com base nas coordenadas do GPS, seta no clinete a latitude e longitude atual. 
 			// Salva no banco de dados do cliente 
 			// Verifica o status do GPS
@@ -378,36 +593,44 @@ public class ListaClientes extends Activity{
 			}else{System.out.println("GPS Inativo");
 				}
 			
-				*/		
-			lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
+				*/
+
+
+            System.out.println("Entrou na rotina salva localização");
+
+			LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
 			System.out.println(lm.isProviderEnabled(LocationManager.GPS_PROVIDER));
 
 			if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+
+
+                System.out.println("Entrou no if ");
+
+			    Location loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
 			
-			loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+			    LatLng atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
+
+                System.out.println("Antes de setar loc em cliente...");
+			    cliente.setLatitude(loc.getLatitude());
+			    cliente.setLongitude(loc.getLongitude());
+
+
 			
-			atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
-			cliente.setLatitude(loc.getLatitude());
-			cliente.setLongitude(loc.getLongitude());
-			
-			
-			try{
-				
-				// Salva os dados do cliente.
-				dataBase.gravaLocalizacaoCliente(cliente.getId(), cliente.getLatitude().toString(), cliente.getLongitude().toString());
-				Toast.makeText(ListaClientes.this, "Localiza��o salva.", Toast.LENGTH_SHORT).show();
-				
-			}catch(Exception e){
-				Utilitarios.showMessage("Erro ao cadastrar!"+e.getMessage(), "Erro", ListaClientes.this);
-				
-			}
-			}else{
-				Toast.makeText(ListaClientes.this, "Problemas na ativa��o do GPS. Verifique e tente novamente.", Toast.LENGTH_SHORT).show();
-				
-			}
-			
-			
-			
+                    try{
+
+                        // Salva os dados do cliente.
+                        dataBase.gravaLocalizacaoCliente(cliente.getId(), cliente.getLatitude().toString(), cliente.getLongitude().toString());
+                        Toast.makeText(ListaClientes.this, "Localização salva.", Toast.LENGTH_SHORT).show();
+
+                    }catch(Exception e){
+                        Utilitarios.showMessage("Erro ao cadastrar!"+e.getMessage(), "Erro", ListaClientes.this);
+
+                    }
+                    }else{
+                        Toast.makeText(ListaClientes.this, "Problemas na ativação do GPS. Verifique e tente novamente.", Toast.LENGTH_SHORT).show();
+
+                    }
+
 		}
 	
 		
@@ -422,14 +645,14 @@ public class ListaClientes extends Activity{
 		
 		@Override
 		public boolean onPrepareOptionsMenu(Menu menu) {
-			/* Carrega este m�todo toda vez que � selecionada a op��o menu do aparelho e testa ent�o quais itens devem aparecer 
-			 conforme as vari�veis mapa e lista
+			/* Carrega este método toda vez que é selecionada a opção menu do aparelho e testa então quais itens devem aparecer
+			 conforme as variáveis mapa e lista
 			*/
 			MenuItem itemSalvaLocal = menu.findItem(R.id.menuitem_mapa_clientes_salvalocal);
 			MenuItem itemSalvaCliente = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_salvar);
 			MenuItem itemVoltar = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_voltar_Lista);
 			MenuItem itemExcluir = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_exlcuir);
-			MenuItem itemMapa = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_mapa);
+			//MenuItem itemMapa = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_mapa);
 			MenuItem itemNovo = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_novocliente);
 			MenuItem itemInicio = menu.findItem(R.id.menuitem_cadastro_clientes_edicao_voltar_principal);
 			
@@ -441,7 +664,7 @@ public class ListaClientes extends Activity{
 		    	itemSalvaCliente.setVisible(false);
 		    	itemVoltar.setVisible(true);
 		    	itemExcluir.setVisible(false);
-		    	itemMapa.setVisible(false);
+		    	//itemMapa.setVisible(false);
 		    	itemNovo.setVisible(false);
 		    	itemInicio.setVisible(true);
 			}else{	
@@ -452,7 +675,7 @@ public class ListaClientes extends Activity{
 			    	itemSalvaCliente.setVisible(false);
 			    	itemVoltar.setVisible(false);
 			    	itemExcluir.setVisible(false);
-			    	itemMapa.setVisible(false);
+			    	//itemMapa.setVisible(false);
 			    	itemNovo.setVisible(true);
 			    	itemInicio.setVisible(true);
 			    	
@@ -465,7 +688,7 @@ public class ListaClientes extends Activity{
 			    	itemSalvaCliente.setVisible(true);
 			    	itemVoltar.setVisible(true);
 			    	itemExcluir.setVisible(true);
-			    	itemMapa.setVisible(true);
+			    	//itemMapa.setVisible(true);
 			    	itemNovo.setVisible(false);
 			    	itemInicio.setVisible(false);
 			    	
@@ -480,7 +703,7 @@ public class ListaClientes extends Activity{
 
 		@Override
 		public void invalidateOptionsMenu() {
-			// Invalida as op��es de menu, sempre que chamado ele automaticamente invalida e o sistema chama o m�todo onPrepareOptionsMenu
+			// Invalida as opções de menu, sempre que chamado ele automaticamente invalida e o sistema chama o método onPrepareOptionsMenu
 			super.invalidateOptionsMenu();
 			
 		}
@@ -516,15 +739,15 @@ public class ListaClientes extends Activity{
 				
 			case R.id.menuitem_cadastro_clientes_edicao_voltar_principal: 
 				// Executa algo
-				i = new Intent(ListaClientes.this, AppClientes.class);
+				i = new Intent(ListaClientes.this, MenuPrincipal.class);
 	            startActivity(i);
 				return true;
 					
-			case R.id.menuitem_cadastro_clientes_edicao_mapa:
-				Mapa=true;	
-				invalidateOptionsMenu();
-				visualizaLocalizacao();
-					return true;
+			//case R.id.menuitem_cadastro_clientes_edicao_mapa:
+			//	Mapa=true;
+			//	invalidateOptionsMenu();
+			//	visualizaLocalizacao();
+			//		return true;
 			case R.id.menuitem_mapa_clientes_salvalocal:
 				    salvaLocalizacao();
 				    return true;

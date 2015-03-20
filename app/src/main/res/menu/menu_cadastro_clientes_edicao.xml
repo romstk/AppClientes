@@ -24,11 +24,14 @@
         android:showAsAction="ifRoom"
         android:title="Início"/>
 
-
+<!--
+Este ítem de menu não está sendo utilizado
 <item
         android:id="@+id/menuitem_cadastro_clientes_edicao_mapa"
         android:showAsAction="ifRoom"
         android:title="Mapa"/>
+-->
+
 <item
         android:id="@+id/menuitem_mapa_clientes_salvalocal"
         android:showAsAction="ifRoom"

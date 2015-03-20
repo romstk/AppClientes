@@ -83,7 +83,7 @@ public class CadastroCliente extends Activity{
 		}
 		
 	
-	//M�todo que carrega o sistema, primeira tela.	
+	//Método que carrega o sistema, primeira tela.
 			@Override
 			protected void onCreate(Bundle savedInstanceState) {
 				super.onCreate(savedInstanceState);
@@ -110,7 +110,7 @@ public class CadastroCliente extends Activity{
 
                     case R.id.menuitem_cadastro_clientes_voltar:
                         // Executa algo
-                        i = new Intent(CadastroCliente.this, AppClientes.class);
+                        i = new Intent(CadastroCliente.this, MenuPrincipal.class);
                         startActivity(i);
                         return true;
 

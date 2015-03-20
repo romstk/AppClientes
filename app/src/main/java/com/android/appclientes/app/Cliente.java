@@ -1,7 +1,5 @@
 package com.android.appclientes.app;
 
-import android.database.Cursor;
-
 public class Cliente {
 	int id;
 	String CPFCNPJ;

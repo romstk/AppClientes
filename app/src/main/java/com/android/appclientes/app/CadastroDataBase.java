@@ -16,6 +16,7 @@ public class CadastroDataBase extends SQLiteOpenHelper{
  	public static final int DATABASE_VERSION = 2; 
  	final String TABLE_CLIENTE = "cliente";
  	final String TABLE_PRODUTO = "produto";
+    final String TABLE_USERS = "users";
 	
 
 	public CadastroDataBase(Context context) {
@@ -57,6 +58,21 @@ public class CadastroDataBase extends SQLiteOpenHelper{
 		
 		System.out.println("SQL Produto: "+ sql);
 		db.execSQL(sql);
+
+        // TABELA USERS
+
+        sql = "CREATE TABLE "+ TABLE_USERS +" (" +
+                "login TEXT PRIMARY KEY, "+
+                "senha TEXT);";
+
+        System.out.println("SQL USERS: "+ sql);
+        db.execSQL(sql);
+
+
+
+
+
+
 	}catch(Exception e){
 		System.out.println("Erro ao criar tabelas. "+e.getMessage());
 		
@@ -72,7 +88,104 @@ public class CadastroDataBase extends SQLiteOpenHelper{
 		// TODO Auto-generated method stub
 		
 	}
-	
+
+
+
+    /*****************************************************
+     * 			   TABELA USERS                         *
+     * 		                                            *
+     * ***************************************************
+     * */
+
+    public void addUser(String login, String senha){
+        ContentValues map = new ContentValues();
+        map.put("login", login);
+        map.put("senha",senha);
+
+        try{
+            getWritableDatabase().insert(TABLE_USERS, null, map);
+
+        }catch(SQLException e){
+            Log.e("Erro ao gravar novo user.", e.toString());
+        }
+    }
+
+    public void updateUser(String login, String senha){
+
+        ContentValues map = new ContentValues();
+
+        map.put("login", login);
+        map.put("senha",senha);
+
+        String[] whereArgs = new String[]{login};
+
+
+        try{
+            getWritableDatabase().update(TABLE_USERS, map, "login=?", whereArgs);
+
+        }catch(SQLException e){
+            Log.e("Erro ao gravar user: ", e.toString());
+        }
+    }
+
+    public void deleteUser(String login){
+
+        String[] whereArgs = new String[]{login};
+
+
+        try{
+            getWritableDatabase().delete(TABLE_USERS, "login=?", whereArgs);
+
+        }catch(SQLException e){
+            Log.e("Erro ao excluir user:", e.toString());
+        }
+
+    }
+
+    /*Retorna lista dos usuários*/
+    public Cursor getUsers() {
+
+        Cursor cursor = null;
+
+        String sql = "select * from " + TABLE_USERS;
+        try {
+
+
+            cursor = getReadableDatabase().rawQuery(sql, null);
+            cursor.moveToFirst();
+
+            return cursor;
+        } catch (SQLException e) {
+            Log.e("Erro ao obter users", e.toString());
+            return cursor;
+        }
+
+    }
+        /*Retorna lista dos usuários*/
+    public Cursor getUser(String login){
+
+
+        System.out.println("Select user: Parametro login passado: "+login);
+        Cursor cursor = null;
+
+        String[] whereArgs = new String[]{login};
+
+        String sql = "select * from "+TABLE_USERS + " where login=?";
+        try{
+
+            cursor = getReadableDatabase().rawQuery(sql, whereArgs);
+            cursor.moveToFirst();
+
+            return cursor;
+        }catch(SQLException e){
+            Log.e("Erro ao obter users", e.toString());
+            return cursor;
+        }
+
+
+    }
+
+
 	/*****************************************************
 	 * 			   TABELA PRODUTO                       *
 	 * 		                                            *
@@ -241,7 +354,7 @@ public class CadastroDataBase extends SQLiteOpenHelper{
 
 		Cursor cursor = null;
 		
-		String sql = "select * from "+TABLE_CLIENTE;
+		String sql = "select * from "+TABLE_CLIENTE+" order by nome";
 		try{
 
 			cursor = getReadableDatabase().rawQuery(sql, null);
