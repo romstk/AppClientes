@@ -8,6 +8,7 @@ import android.app.ProgressDialog;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
+import android.graphics.Color;
 import android.location.Address;
 import android.location.Geocoder;
 import android.location.GpsStatus;
@@ -17,6 +18,7 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -50,7 +52,11 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.Locale;
 
 @SuppressLint("NewApi")
@@ -62,7 +68,14 @@ public class ListaClientes extends Activity{
 	public Cliente cliente = new Cliente();
 	// Variáveis que recebem os edit text da tela de cadastro
 	EditText edcnpjcpf, ednome, edfone, edcelular, edemail, edcontato, edendereco, edcep, edcidade;
-	
+
+// Utiliza como global para poder utilizar no mapa quando atualiza a localização
+    PolylineOptions line = new PolylineOptions();
+    ArrayList<LatLng> listaLatLng = new ArrayList<LatLng>();
+    int indexLoc;
+    boolean partida=true; //Inicia como true e quando começar a se deslocar passa para false para determinar o marcador inicial.
+
+
 
 	void carregaListaPessoas(){
 		Lista=true;
@@ -234,13 +247,10 @@ public class ListaClientes extends Activity{
 			}
 			
 		}
-		
-		public LatLng atualizaLocation(Location loc){
-			LatLng atualSystemLocation = null; // localização atual
-			atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
-			return atualSystemLocation;
-			
-		}
+
+
+
+
 		
 		
 		void visualizaLocalizacao() {
@@ -259,6 +269,8 @@ public class ListaClientes extends Activity{
 			if ((cliente.getLatitude()!=0) ||(cliente.getLongitude()!=0)){
                /* Variáveis que manipulam o GPS
 
+
+
                 permite o acesso a serviços de localização e status de GPS
                 LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
                 Location loc; 	// = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
@@ -267,35 +279,42 @@ public class ListaClientes extends Activity{
                 */
 				
 			System.out.println("Seta valor em lm.");
-
-
 		    LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
-
-                GpsStatus status;
-
-
 
 
 			if (lm.isProviderEnabled(LocationManager.GPS_PROVIDER)){
+
+                lm.requestLocationUpdates(LocationManager.GPS_PROVIDER,0,0, locationListener);
+
 							System.out.println("Dentro do IF");
-
 							System.out.println("Seta valor em loc.");
-                            Location loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                            //Location loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+                            Location loc = new Location(lm.GPS_PROVIDER);
 
-							
 							System.out.println("Setou valor em loc.");
-							// Define o mapa
+
+                            // Define o mapa
                             GoogleMap mMap = ((MapFragment) getFragmentManager().findFragmentById(R.id.mapCad)).getMap();
 
+                            //Seta no mapa a localização atual
+                            mMap.setMyLocationEnabled(true);
 
                             FrameLayout layout = (FrameLayout) findViewById(R.id.layoutMapa);
                             layout.setVisibility(View.VISIBLE);
 
+                            //LatLng atualSystemLocation = atualizaLocation(loc);
 
-							System.out.println("Seta valor atualSystemLocation.");
-							LatLng atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude()); // localização atual (latitude e longitude)
-							System.out.println("Setou valor atualSystemLocation.");
-							Marker frameworkSystem = mMap.addMarker(new MarkerOptions()
+							//LatLng atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude()); // localização atual (latitude e longitude)
+
+                            /*
+                            LatLng atualSystemLocation = atualizaLocation(loc);
+
+							System.out.println("Setou valor atualSystemLocation."+"Latitude: "+loc.getLatitude()+" Longitude: "+loc.getLongitude());
+
+
+
+
+                            Marker frameworkSystem = mMap.addMarker(new MarkerOptions()
 							//.icon(BitmapDescriptorFactory.fromResource(R.drawable.home))
                             .icon(BitmapDescriptorFactory.fromResource(R.drawable.pin))
 							.position(atualSystemLocation)
@@ -306,11 +325,12 @@ public class ListaClientes extends Activity{
 							System.out.println("Antes do move camera atualSystemLocation.");
 							// Move a câmera para Framework System com zoom 15.
 							mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(atualSystemLocation , 15));
-
+                            */
 							
 							System.out.println("Setou valor em clienteLocation.");
 							// Define a localizaçãoo do cliente e seta dados e marcações do cliente no mapa
 							LatLng clienteLocation = new LatLng(cliente.getLatitude(), cliente.getLongitude()); //Localização salva do cliente (latitude e longitude)
+
 							Marker frameworkCliente = mMap.addMarker(new MarkerOptions()
 							//.icon(BitmapDescriptorFactory.fromResource(R.drawable.pin))
 							.position(clienteLocation)
@@ -333,10 +353,9 @@ public class ListaClientes extends Activity{
 					                .build();
 							
 							
-							System.out.println("Animate cameta");
+							System.out.println("Animate camera");
 							// Animate the change in camera view over 2 seconds
-					        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition),
-					                2000, null);
+					        mMap.animateCamera(CameraUpdateFactory.newCameraPosition(cameraPosition),2000, null);
 						
 				           /* Traça pontos entre a posição atual e a posição do cliente
 
@@ -385,13 +404,13 @@ public class ListaClientes extends Activity{
 
 
 
-
+/*
 
                 LocationListener locationListener = new LocationListener(){
                     /*
                     *  Listener utilizada abaixo para tratar os eventos de atualização do GPS
                     * */
-
+/*
 
                     @Override
                     public void onLocationChanged(Location location) {
@@ -410,7 +429,7 @@ public class ListaClientes extends Activity{
 								);
 								*/
 
-
+/*
                     }
 
                     @Override
@@ -436,7 +455,7 @@ public class ListaClientes extends Activity{
 
                 };
 
-
+*/
 			             /* Seta os parâmetros para caso ocorram updates na localização
 			                1º - parâmetro é o provider, neste caso o GPS
 			                2º - parâmetro é o tempo mínimo em milisegundos que é o intervalo que a aplicação deve atualizar a localização,
@@ -444,7 +463,15 @@ public class ListaClientes extends Activity{
 			                3º - parâmetro distância mínima em metros necessária que deve ser percorrido para a aplicação receber as atualizações
 			                4º- parâmetro que representa a implementação da LocationListener, que trata os métodos para cada evento ocorrido com o GPS
                          */
-						 lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 60000, 1, locationListener);
+
+                         lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 2000, 1, locationListener);
+
+                           // Seta valor de indexLoc,  que é a variável que controla os indices da lista de latLng
+                            indexLoc=0;
+                            System.out.println("indexLoc="+indexLoc);
+
+
+
 
 
 
@@ -454,7 +481,19 @@ public class ListaClientes extends Activity{
             }else{
 							Toast.makeText(ListaClientes.this, "Problemas na ativação do GPS. Verifique e tente novamente.", Toast.LENGTH_SHORT).show();
 							Lista=false;
-							invalidateOptionsMenu();
+							//invalidateOptionsMenu();
+                            // Volta para a lista de clientes e Abre as configurações para ativar o gps
+
+                            i = new Intent(ListaClientes.this, ListaClientes.class);
+                            Lista=true;
+                            invalidateOptionsMenu();
+                            startActivity(i);
+
+                            Intent callGPSSettingIntent =  new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                            startActivity(callGPSSettingIntent);
+
+
+
 						}
 			}else{
 				
@@ -463,6 +502,105 @@ public class ListaClientes extends Activity{
 			
        
 		}
+
+
+    LocationListener locationListener = new LocationListener(){
+                    /*
+                    *  Listener utilizada abaixo para tratar os eventos de atualização do GPS
+                    * */
+
+
+        @Override
+        public void onLocationChanged(Location location ) {
+            // Chama método que atualiza a localização
+
+            // lm e loc abaixo utilizados para buscar dados da localização atual
+
+
+								LocationManager lm = (LocationManager)getSystemService(Context.LOCATION_SERVICE);
+								Location loc = lm.getLastKnownLocation(LocationManager.GPS_PROVIDER);
+
+
+                                // Define o mapa
+                                GoogleMap mMap = ((MapFragment) getFragmentManager().findFragmentById(R.id.mapCad)).getMap();
+                                //mMap.setMyLocationEnabled(false);
+
+                                LatLng atualSystemLocation = new LatLng(loc.getLatitude(), loc.getLongitude());
+
+                                //atualizaLocation(loc);
+                                System.out.println("Adiciona location na lista");
+
+                                listaLatLng.add(atualSystemLocation);
+
+                                // Traça pontos entre a posição atual e a posição do cliente
+
+
+
+                               if (indexLoc>0) {
+
+                                   System.out.println("Adiciona location na lista. Index: "+indexLoc);
+                                   line.add((LatLng) listaLatLng.get(indexLoc-1));
+
+
+
+                                   System.out.print("Adiciona location na lista. Index: " + indexLoc);
+                                    line.add((LatLng) listaLatLng.get(indexLoc));
+                                    partida=false;
+                                }
+
+                                indexLoc=indexLoc+1;
+
+                                line.color(Color.BLUE);
+                                Polyline polyline = mMap.addPolyline(line);
+                                polyline.setGeodesic(true);
+
+
+                                // Se a lista tiver somente o primeiro local vai setar o indicador do ponto de partida
+
+
+                                if(partida) {
+
+                                    Marker locationSystem = mMap.addMarker(new MarkerOptions()
+                                                    .position(atualSystemLocation)
+                                                    .icon(BitmapDescriptorFactory.fromResource(R.drawable.pin))
+                                                    .title("Localização Atual")
+                                            //.snippet("Ponto de partida.")
+                                    );
+                                }
+
+
+
+
+
+
+
+
+        }
+
+        @Override
+        public void onProviderDisabled(String provider) {
+            // TODO Auto-generated method stub
+            Toast.makeText(ListaClientes.this,"Gps Disabled",Toast.LENGTH_SHORT ).show();
+
+        }
+
+        @Override
+        public void onProviderEnabled(String provider) {
+            // TODO Auto-generated method stub
+            Toast.makeText(ListaClientes.this,"Gps Enabled",Toast.LENGTH_SHORT ).show();
+        }
+
+        @Override
+        public void onStatusChanged(String provider, int status,
+                                    Bundle extras) {
+            // TODO Auto-generated method stub
+
+        }
+
+
+    };
+
+
 
 
 
@@ -484,6 +622,7 @@ public class ListaClientes extends Activity{
         //    // TODO Auto-gerado bloco catch
          //   e1 . printStackTrace ();
         //}
+
 
 
         final ProgressDialog dialogo = new ProgressDialog(this);
@@ -627,9 +766,21 @@ public class ListaClientes extends Activity{
 
                     }
                     }else{
+
                         Toast.makeText(ListaClientes.this, "Problemas na ativação do GPS. Verifique e tente novamente.", Toast.LENGTH_SHORT).show();
 
-                    }
+                        // Volta para a lista de clientes e Abre as configurações para ativar o gps
+
+                        i = new Intent(ListaClientes.this, ListaClientes.class);
+                        Lista=true;
+                        invalidateOptionsMenu();
+                        startActivity(i);
+
+                        Intent callGPSSettingIntent =  new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS);
+                        startActivity(callGPSSettingIntent);
+
+
+            }
 
 		}
 	
